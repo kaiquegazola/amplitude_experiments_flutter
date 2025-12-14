@@ -1,0 +1,11 @@
+name: amplitude_experiments_flutter_workspace
+description: Workspace for amplitude_experiments_flutter monorepo
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  melos: 6.1.0

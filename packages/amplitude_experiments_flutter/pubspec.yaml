@@ -1,0 +1,32 @@
+name: amplitude_experiments_flutter
+description: Amplitude Experiment SDK for Flutter
+version: 0.0.1
+publish_to: none
+homepage:
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.3"
+
+dependencies:
+  amplitude_experiments_flutter_android:
+    path: ../amplitude_experiments_flutter_android
+  amplitude_experiments_flutter_ios:
+    path: ../amplitude_experiments_flutter_ios
+  amplitude_experiments_flutter_platform_interface:
+    path: ../amplitude_experiments_flutter_platform_interface
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        default_package: amplitude_experiments_flutter_android
+      ios:
+        default_package: amplitude_experiments_flutter_ios

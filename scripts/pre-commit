@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# Pre-commit hook for amplitude_experiments_flutter
+# Runs code formatters before committing
+
+echo "Running pre-commit formatters..."
+
+# Run formatters
+melos run format
+
+# Add formatted files back to staging
+git add -u
+
+# Check if formatting made changes
+if git diff --cached --quiet; then
+    echo "✓ No formatting changes needed"
+else
+    echo "✓ Code formatted and staged"
+fi
+
+exit 0

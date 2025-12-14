@@ -1,0 +1,28 @@
+name: amplitude_experiments_flutter_ios
+description: iOS implementation of the amplitude_experiments_flutter plugin.
+version: 0.0.1
+publish_to: none
+homepage:
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.3"
+
+dependencies:
+  amplitude_experiments_flutter_platform_interface:
+    path: ../amplitude_experiments_flutter_platform_interface
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    implements: amplitude_experiments_flutter
+    platforms:
+      ios:
+        pluginClass: AmplitudeExperimentsFlutterPlugin
+        dartPluginClass: AmplitudeExperimentsFlutterIOS

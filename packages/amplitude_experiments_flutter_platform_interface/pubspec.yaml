@@ -1,0 +1,19 @@
+name: amplitude_experiments_flutter_platform_interface
+description: A common platform interface for the amplitude_experiments_flutter plugin.
+version: 0.0.1
+homepage:
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.3"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  plugin_platform_interface: ^2.0.2
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+  pigeon: ^22.7.0

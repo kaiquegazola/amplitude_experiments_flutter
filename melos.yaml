@@ -1,0 +1,51 @@
+name: amplitude_experiments_flutter
+
+packages:
+  - packages/**
+
+command:
+  bootstrap:
+    usePubspecOverrides: true
+
+scripts:
+  bootstrap:
+    description: Run `melos bootstrap` to link packages
+    run: melos bootstrap
+
+  clean:
+    description: Clean all packages
+    run: melos clean
+
+  format:
+    description: Format Dart, Kotlin and Swift code
+    run: |
+      sh scripts/format_dart.sh
+      sh scripts/format_kotlin.sh
+      sh scripts/format_swift.sh
+
+  analyze:
+    description: Analyze Dart code in all packages
+    run: melos exec -- dart analyze --fatal-infos
+
+  test:
+    description: Run tests in all packages
+    run: melos exec -- flutter test --coverage
+
+  pigeon:
+    description: Generate Pigeon code for platform channels
+    run: |
+      echo "Generating Pigeon code..."
+      cd packages/amplitude_experiments_flutter_platform_interface
+      dart run pigeon --input pigeons/messages.dart
+
+  pub:get:
+    description: Get dependencies for all packages
+    run: melos exec -- flutter pub get
+
+  pub:upgrade:
+    description: Upgrade dependencies for all packages
+    run: melos exec -- flutter pub upgrade
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.3"
