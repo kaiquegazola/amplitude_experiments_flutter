@@ -2,7 +2,7 @@ name: amplitude_experiments_flutter_platform_interface
 description: >-
   A common platform interface for the amplitude_experiments_flutter plugin.
   Used by iOS and Android implementations.
-version: 0.0.1
+version: 0.0.2
 homepage: https://amplitude.com/docs/sdks/experiment-sdks
 repository: https://github.com/kaiquegazola/amplitude_experiments_flutter
 
