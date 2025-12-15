@@ -16,10 +16,13 @@ Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  amplitude_experiments_flutter:
-    git:
-      url: https://github.com/user/amplitude_experiments_flutter
-      path: packages/amplitude_experiments_flutter
+  amplitude_experiments_flutter: ^0.0.1
+```
+
+Then run:
+
+```bash
+flutter pub get
 ```
 
 ### Platform Requirements

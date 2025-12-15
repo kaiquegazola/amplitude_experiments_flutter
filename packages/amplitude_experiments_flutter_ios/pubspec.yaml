@@ -11,8 +11,7 @@ environment:
   flutter: ">=3.24.3"
 
 dependencies:
-  amplitude_experiments_flutter_platform_interface:
-    path: ../amplitude_experiments_flutter_platform_interface
+  amplitude_experiments_flutter_platform_interface: ^0.0.1
   flutter:
     sdk: flutter
 
