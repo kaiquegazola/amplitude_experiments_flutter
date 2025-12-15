@@ -6,6 +6,14 @@ packages:
 command:
   bootstrap:
     usePubspecOverrides: true
+  version:
+    workspaceChangelog: true
+    branch: main
+    message: "chore(release): publish packages"
+    changelogs:
+      - path: CHANGELOG.md
+        packageFilters:
+          scope: amplitude_experiments_flutter
 
 scripts:
   bootstrap:

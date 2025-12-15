@@ -10,9 +10,14 @@ import 'models/variant.dart';
 /// An implementation of [AmplitudeExperimentsFlutterPlatform] that uses Pigeon.
 class MethodChannelAmplitudeExperimentsFlutter
     extends AmplitudeExperimentsFlutterPlatform {
+  /// Creates a new instance with an optional API for testing.
+  MethodChannelAmplitudeExperimentsFlutter({AmplitudeExperimentsApi? api})
+      : _api = api ?? AmplitudeExperimentsApi();
+
   /// The Pigeon API used to interact with the native platform.
   @visibleForTesting
-  final AmplitudeExperimentsApi api = AmplitudeExperimentsApi();
+  AmplitudeExperimentsApi get api => _api;
+  final AmplitudeExperimentsApi _api;
 
   @override
   Future<void> initialize(String deploymentKey, ExperimentConfig config) async {
