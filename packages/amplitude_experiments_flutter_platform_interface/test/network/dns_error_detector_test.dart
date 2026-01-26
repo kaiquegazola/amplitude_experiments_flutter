@@ -27,7 +27,8 @@ void main() {
       test('returns true when hostname resolves to 127.0.0.1', () {
         final error = PlatformException(
           code: 'FETCH_ERROR',
-          message: 'ConnectException: Failed to connect to api.lab.amplitude.com/127.0.0.1:443',
+          message:
+              'ConnectException: Failed to connect to api.lab.amplitude.com/127.0.0.1:443',
         );
 
         expect(DnsErrorDetector.isDnsRelatedError(error), isTrue);
@@ -100,7 +101,8 @@ Caused by: android.system.ErrnoException: isConnected failed: ECONNREFUSED
         expect(DnsErrorDetector.isDnsRelatedError(error), isFalse);
       });
 
-      test('returns false for generic connection refused without localhost', () {
+      test('returns false for generic connection refused without localhost',
+          () {
         final error = PlatformException(
           code: 'FETCH_ERROR',
           message: 'Connection refused to 192.168.1.1:443',

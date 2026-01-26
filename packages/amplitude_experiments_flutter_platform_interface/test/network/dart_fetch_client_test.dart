@@ -42,7 +42,8 @@ void main() {
       test('returns unmodifiable map', () {
         final result = client.all();
         expect(
-          () => (result as Map<String, Variant>)['test'] = const Variant(key: 'test'),
+          () => (result as Map<String, Variant>)['test'] =
+              const Variant(key: 'test'),
           throwsUnsupportedError,
         );
       });

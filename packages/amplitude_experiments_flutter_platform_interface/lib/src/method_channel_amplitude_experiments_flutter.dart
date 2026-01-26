@@ -29,7 +29,8 @@ class MethodChannelAmplitudeExperimentsFlutter
     AmplitudeExperimentsApi? api,
     @visibleForTesting DartFetchClientFactory? dartFetchClientFactory,
   })  : _api = api ?? AmplitudeExperimentsApi(),
-        dartFetchClientFactory = dartFetchClientFactory ?? _defaultClientFactory;
+        dartFetchClientFactory =
+            dartFetchClientFactory ?? _defaultClientFactory;
 
   /// Default factory that creates real DartFetchClient instances.
   static DartFetchClient _defaultClientFactory({
