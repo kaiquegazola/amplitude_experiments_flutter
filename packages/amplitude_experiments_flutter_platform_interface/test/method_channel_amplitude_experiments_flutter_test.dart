@@ -1,5 +1,7 @@
 import 'package:amplitude_experiments_flutter_platform_interface/amplitude_experiments_flutter_platform_interface.dart';
 import 'package:amplitude_experiments_flutter_platform_interface/src/generated/messages.g.dart';
+import 'package:amplitude_experiments_flutter_platform_interface/src/network/dart_fetch_client.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// A mock implementation of [AmplitudeExperimentsApi] for testing.
@@ -218,5 +220,366 @@ void main() {
         expect(mockApi.clearCalled, isTrue);
       });
     });
+
+    group('DNS fallback', () {
+      test('falls back to Dart client when DNS error occurs', () async {
+        // First initialize to store config
+        await methodChannel.initialize(
+          'test-key',
+          const ExperimentConfig(),
+        );
+
+        // Create a new mock that throws DNS error
+        final failingApi = _DnsErrorThrowingApi();
+        final failingChannel = MethodChannelAmplitudeExperimentsFlutter(
+          api: failingApi,
+        );
+
+        // Initialize the failing channel
+        await failingChannel.initialize(
+          'test-key',
+          const ExperimentConfig(fetchTimeoutMillis: 1000),
+        );
+
+        // fetch() should throw because Dart fallback will fail on network
+        // but it should NOT throw PlatformException - it should try the fallback
+        await expectLater(
+          () => failingChannel.fetch(null),
+          throwsA(isNot(isA<PlatformException>())),
+        );
+      });
+
+      test('rethrows non-DNS errors', () async {
+        final nonDnsErrorApi = _NonDnsErrorThrowingApi();
+        final channel = MethodChannelAmplitudeExperimentsFlutter(
+          api: nonDnsErrorApi,
+        );
+
+        await channel.initialize('test-key', const ExperimentConfig());
+
+        await expectLater(
+          () => channel.fetch(null),
+          throwsA(isA<PlatformException>()),
+        );
+      });
+
+      test('uses mock DartFetchClient when fallback is triggered', () async {
+        final mockDartClient = MockDartFetchClient();
+        final dnsErrorApi = _DnsErrorThrowingApi();
+
+        final channel = MethodChannelAmplitudeExperimentsFlutter(
+          api: dnsErrorApi,
+          dartFetchClientFactory: ({
+            required String deploymentKey,
+            required ExperimentConfig config,
+          }) =>
+              mockDartClient,
+        );
+
+        await channel.initialize('test-key', const ExperimentConfig());
+        await channel.fetch(null);
+
+        expect(mockDartClient.fetchCalled, isTrue);
+        expect(channel.usingDartFallback, isTrue);
+      });
+
+      test('variant returns from Dart client when using fallback', () async {
+        final mockDartClient = MockDartFetchClient();
+        mockDartClient.variants = {
+          'test-flag': const Variant(key: 'test-flag', value: 'treatment'),
+        };
+
+        final dnsErrorApi = _DnsErrorThrowingApi();
+
+        final channel = MethodChannelAmplitudeExperimentsFlutter(
+          api: dnsErrorApi,
+          dartFetchClientFactory: ({
+            required String deploymentKey,
+            required ExperimentConfig config,
+          }) =>
+              mockDartClient,
+        );
+
+        await channel.initialize('test-key', const ExperimentConfig());
+        await channel.fetch(null);
+
+        final result = await channel.variant('test-flag', null);
+
+        expect(result?.value, 'treatment');
+        expect(mockDartClient.variantCalled, isTrue);
+      });
+
+      test('all returns from Dart client when using fallback', () async {
+        final mockDartClient = MockDartFetchClient();
+        mockDartClient.variants = {
+          'flag1': const Variant(key: 'flag1', value: 'on'),
+          'flag2': const Variant(key: 'flag2', value: 'off'),
+        };
+
+        final dnsErrorApi = _DnsErrorThrowingApi();
+
+        final channel = MethodChannelAmplitudeExperimentsFlutter(
+          api: dnsErrorApi,
+          dartFetchClientFactory: ({
+            required String deploymentKey,
+            required ExperimentConfig config,
+          }) =>
+              mockDartClient,
+        );
+
+        await channel.initialize('test-key', const ExperimentConfig());
+        await channel.fetch(null);
+
+        final result = await channel.all();
+
+        expect(result.length, 2);
+        expect(result['flag1']?.value, 'on');
+        expect(result['flag2']?.value, 'off');
+        expect(mockDartClient.allCalled, isTrue);
+      });
+
+      test('clear resets fallback state', () async {
+        final mockDartClient = MockDartFetchClient();
+        final dnsErrorApi = _DnsErrorThrowingApi();
+
+        final channel = MethodChannelAmplitudeExperimentsFlutter(
+          api: dnsErrorApi,
+          dartFetchClientFactory: ({
+            required String deploymentKey,
+            required ExperimentConfig config,
+          }) =>
+              mockDartClient,
+        );
+
+        await channel.initialize('test-key', const ExperimentConfig());
+        await channel.fetch(null);
+
+        expect(channel.usingDartFallback, isTrue);
+
+        await channel.clear();
+
+        expect(channel.usingDartFallback, isFalse);
+        expect(mockDartClient.clearCalled, isTrue);
+      });
+
+      test('continues using Dart client after fallback is activated', () async {
+        final mockDartClient = MockDartFetchClient();
+        final dnsErrorApi = _DnsErrorThrowingApi();
+
+        final channel = MethodChannelAmplitudeExperimentsFlutter(
+          api: dnsErrorApi,
+          dartFetchClientFactory: ({
+            required String deploymentKey,
+            required ExperimentConfig config,
+          }) =>
+              mockDartClient,
+        );
+
+        await channel.initialize('test-key', const ExperimentConfig());
+
+        // First fetch triggers fallback
+        await channel.fetch(null);
+        expect(mockDartClient.fetchCallCount, 1);
+
+        // Second fetch should use Dart client directly
+        await channel.fetch(null);
+        expect(mockDartClient.fetchCallCount, 2);
+
+        // Native API should not be called after fallback
+        expect(dnsErrorApi.fetchCallCount, 1);
+      });
+
+      test('throws StateError when fetch called before initialize', () async {
+        final dnsErrorApi = _DnsErrorThrowingApi();
+
+        final channel = MethodChannelAmplitudeExperimentsFlutter(
+          api: dnsErrorApi,
+          dartFetchClientFactory: ({
+            required String deploymentKey,
+            required ExperimentConfig config,
+          }) =>
+              MockDartFetchClient(),
+        );
+
+        // Don't call initialize, fetch should throw StateError
+        // because deploymentKey and config are null
+        await expectLater(
+          () => channel.fetch(null),
+          throwsA(isA<StateError>()),
+        );
+      });
+
+      test('variant returns fallback when fetch fails completely', () async {
+        final dnsErrorApi = _DnsErrorThrowingApi();
+        final failingDartClient = FailingMockDartFetchClient();
+
+        final channel = MethodChannelAmplitudeExperimentsFlutter(
+          api: dnsErrorApi,
+          dartFetchClientFactory: ({
+            required String deploymentKey,
+            required ExperimentConfig config,
+          }) =>
+              failingDartClient,
+        );
+
+        await channel.initialize('test-key', const ExperimentConfig());
+
+        // Start fetch in background (it will fail)
+        final fetchFuture = channel.fetch(null);
+
+        // Call variant while fetch is in progress
+        const fallback = Variant(key: 'fallback', value: 'default');
+        final resultFuture = channel.variant('test-flag', fallback);
+
+        // Wait for fetch to complete (with error)
+        await expectLater(fetchFuture, throwsException);
+
+        // variant should return fallback because fetch failed
+        final result = await resultFuture;
+        expect(result, equals(fallback));
+      });
+
+      test('all returns empty map when fetch fails completely', () async {
+        final dnsErrorApi = _DnsErrorThrowingApi();
+        final failingDartClient = FailingMockDartFetchClient();
+
+        final channel = MethodChannelAmplitudeExperimentsFlutter(
+          api: dnsErrorApi,
+          dartFetchClientFactory: ({
+            required String deploymentKey,
+            required ExperimentConfig config,
+          }) =>
+              failingDartClient,
+        );
+
+        await channel.initialize('test-key', const ExperimentConfig());
+
+        // Start fetch (it will fail)
+        final fetchFuture = channel.fetch(null);
+
+        // Call all while fetch is in progress
+        final resultFuture = channel.all();
+
+        // Wait for fetch to complete (with error)
+        await expectLater(fetchFuture, throwsException);
+
+        // all should return empty map because fetch failed
+        final result = await resultFuture;
+        expect(result, isEmpty);
+      });
+
+      test('exposure still tries native SDK even when using fallback',
+          () async {
+        final mockDartClient = MockDartFetchClient();
+        final dnsErrorApi = _DnsErrorThrowingApi();
+
+        final channel = MethodChannelAmplitudeExperimentsFlutter(
+          api: dnsErrorApi,
+          dartFetchClientFactory: ({
+            required String deploymentKey,
+            required ExperimentConfig config,
+          }) =>
+              mockDartClient,
+        );
+
+        await channel.initialize('test-key', const ExperimentConfig());
+        await channel.fetch(null);
+
+        // Exposure should still try native SDK
+        await channel.exposure('test-flag');
+
+        expect(dnsErrorApi.exposureCalled, isTrue);
+      });
+    });
   });
+}
+
+/// Mock API that throws a DNS-related error on fetch.
+class _DnsErrorThrowingApi extends MockAmplitudeExperimentsApi {
+  int fetchCallCount = 0;
+
+  @override
+  Future<void> fetch(ExperimentUserMessage? user) async {
+    fetchCallCount++;
+    throw PlatformException(
+      code: 'FETCH_ERROR',
+      message: 'Failed to connect to api.lab.amplitude.com/[::]:443',
+      details: 'Caused by: failed to connect to localhost/127.0.0.1 (port 443)',
+    );
+  }
+}
+
+/// Mock API that throws a non-DNS error on fetch.
+class _NonDnsErrorThrowingApi extends MockAmplitudeExperimentsApi {
+  @override
+  Future<void> fetch(ExperimentUserMessage? user) async {
+    throw PlatformException(
+      code: 'FETCH_ERROR',
+      message: 'HTTP 500 Internal Server Error',
+    );
+  }
+}
+
+/// Mock DartFetchClient for testing.
+class MockDartFetchClient implements DartFetchClient {
+  bool fetchCalled = false;
+  bool variantCalled = false;
+  bool allCalled = false;
+  bool clearCalled = false;
+  int fetchCallCount = 0;
+
+  Map<String, Variant> variants = {};
+
+  @override
+  String get deploymentKey => 'test-key';
+
+  @override
+  ExperimentConfig get config => const ExperimentConfig();
+
+  @override
+  Future<void> fetch(ExperimentUser? user) async {
+    fetchCalled = true;
+    fetchCallCount++;
+  }
+
+  @override
+  Variant? variant(String key, Variant? fallback) {
+    variantCalled = true;
+    return variants[key] ?? fallback;
+  }
+
+  @override
+  Map<String, Variant> all() {
+    allCalled = true;
+    return Map.unmodifiable(variants);
+  }
+
+  @override
+  void clear() {
+    clearCalled = true;
+    variants = {};
+  }
+}
+
+/// Mock DartFetchClient that always fails.
+class FailingMockDartFetchClient implements DartFetchClient {
+  @override
+  String get deploymentKey => 'test-key';
+
+  @override
+  ExperimentConfig get config => const ExperimentConfig();
+
+  @override
+  Future<void> fetch(ExperimentUser? user) async {
+    throw Exception('Network error');
+  }
+
+  @override
+  Variant? variant(String key, Variant? fallback) => fallback;
+
+  @override
+  Map<String, Variant> all() => {};
+
+  @override
+  void clear() {}
 }
