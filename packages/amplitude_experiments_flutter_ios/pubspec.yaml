@@ -2,7 +2,7 @@ name: amplitude_experiments_flutter_ios
 description: >-
   iOS implementation of the amplitude_experiments_flutter plugin.
   Uses the native Amplitude Experiment iOS SDK via CocoaPods.
-version: 0.0.1+1
+version: 0.0.1+2
 homepage: https://amplitude.com/docs/sdks/experiment-sdks
 repository: https://github.com/kaiquegazola/amplitude_experiments_flutter
 
@@ -11,7 +11,7 @@ environment:
   flutter: ">=3.24.3"
 
 dependencies:
-  amplitude_experiments_flutter_platform_interface: ^0.0.2
+  amplitude_experiments_flutter_platform_interface: ^0.0.3
   flutter:
     sdk: flutter
 
