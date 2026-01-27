@@ -34,12 +34,6 @@ class DartFetchClient {
   /// Cached variants from the last successful fetch.
   Map<String, Variant> _cachedVariants = {};
 
-  /// Returns the server URL based on the configured server zone.
-  String get _serverUrl => switch (config.serverZone) {
-        ServerZone.us => 'https://api.lab.amplitude.com',
-        ServerZone.eu => 'https://api.lab.eu.amplitude.com',
-      };
-
   /// Returns the hostname based on the configured server zone.
   String get _hostname => switch (config.serverZone) {
         ServerZone.us => 'api.lab.amplitude.com',
@@ -107,8 +101,8 @@ class DartFetchClient {
 
       // Add user header if present
       if (user != null) {
-        final userMap = Map<String, dynamic>.from(user.toJson());
-        userMap.removeWhere((_, v) => v == null);
+        final userMap = Map<String, dynamic>.from(user.toJson())
+          ..removeWhere((_, v) => v == null);
         final userJson = json.encode(userMap);
         final userBase64 = base64Url.encode(utf8.encode(userJson));
         request.write('X-Amp-Exp-User: $userBase64\r\n');

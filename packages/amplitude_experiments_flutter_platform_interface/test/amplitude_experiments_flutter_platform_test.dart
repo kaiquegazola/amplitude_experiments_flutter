@@ -79,7 +79,9 @@ void main() {
       final platform = _TestPlatform();
       expect(
         () => platform.initializeWithAmplitudeAnalytics(
-            'key', const ExperimentConfig()),
+          'key',
+          const ExperimentConfig(),
+        ),
         throwsA(isA<UnimplementedError>()),
       );
     });
@@ -103,7 +105,7 @@ void main() {
     test('all throws UnimplementedError by default', () {
       final platform = _TestPlatform();
       expect(
-        () => platform.all(),
+        platform.all,
         throwsA(isA<UnimplementedError>()),
       );
     });
@@ -119,7 +121,7 @@ void main() {
     test('clear throws UnimplementedError by default', () {
       final platform = _TestPlatform();
       expect(
-        () => platform.clear(),
+        platform.clear,
         throwsA(isA<UnimplementedError>()),
       );
     });

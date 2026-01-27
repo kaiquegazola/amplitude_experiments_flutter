@@ -1,5 +1,4 @@
 import 'package:amplitude_experiments_flutter_platform_interface/amplitude_experiments_flutter_platform_interface.dart';
-import 'package:amplitude_experiments_flutter_platform_interface/src/generated/messages.g.dart';
 import 'package:amplitude_experiments_flutter_platform_interface/src/network/dart_fetch_client.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -110,10 +109,12 @@ void main() {
     group('initializeWithAmplitudeAnalytics', () {
       test('calls api.initializeWithAmplitudeAnalytics with correct parameters',
           () async {
-        const config = ExperimentConfig(debug: false);
+        const config = ExperimentConfig();
 
         await methodChannel.initializeWithAmplitudeAnalytics(
-            'analytics-key', config);
+          'analytics-key',
+          config,
+        );
 
         expect(mockApi.initializeWithAnalyticsCalled, isTrue);
         expect(mockApi.lastDeploymentKey, 'analytics-key');
@@ -284,10 +285,10 @@ void main() {
       });
 
       test('variant returns from Dart client when using fallback', () async {
-        final mockDartClient = MockDartFetchClient();
-        mockDartClient.variants = {
-          'test-flag': const Variant(key: 'test-flag', value: 'treatment'),
-        };
+        final mockDartClient = MockDartFetchClient()
+          ..variants = {
+            'test-flag': const Variant(key: 'test-flag', value: 'treatment'),
+          };
 
         final dnsErrorApi = _DnsErrorThrowingApi();
 
@@ -310,11 +311,11 @@ void main() {
       });
 
       test('all returns from Dart client when using fallback', () async {
-        final mockDartClient = MockDartFetchClient();
-        mockDartClient.variants = {
-          'flag1': const Variant(key: 'flag1', value: 'on'),
-          'flag2': const Variant(key: 'flag2', value: 'off'),
-        };
+        final mockDartClient = MockDartFetchClient()
+          ..variants = {
+            'flag1': const Variant(key: 'flag1', value: 'on'),
+            'flag2': const Variant(key: 'flag2', value: 'off'),
+          };
 
         final dnsErrorApi = _DnsErrorThrowingApi();
 

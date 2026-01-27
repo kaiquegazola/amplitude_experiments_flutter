@@ -13,9 +13,7 @@ void main() {
       client = DartFetchClient(
         deploymentKey: 'test-deployment-key',
         config: const ExperimentConfig(
-          serverZone: ServerZone.us,
           fetchTimeoutMillis: 5000,
-          automaticExposureTracking: true,
         ),
       );
     });
@@ -42,8 +40,7 @@ void main() {
       test('returns unmodifiable map', () {
         final result = client.all();
         expect(
-          () => (result as Map<String, Variant>)['test'] =
-              const Variant(key: 'test'),
+          () => result['test'] = const Variant(key: 'test'),
           throwsUnsupportedError,
         );
       });
@@ -66,7 +63,7 @@ void main() {
       test('uses US server URL by default', () {
         final usClient = DartFetchClient(
           deploymentKey: 'key',
-          config: const ExperimentConfig(serverZone: ServerZone.us),
+          config: const ExperimentConfig(),
         );
         // We can't directly access private _serverUrl, but we can verify
         // the client was created successfully
@@ -119,7 +116,7 @@ void main() {
     test('respects automatic exposure tracking config', () {
       final clientWithTracking = DartFetchClient(
         deploymentKey: 'key',
-        config: const ExperimentConfig(automaticExposureTracking: true),
+        config: const ExperimentConfig(),
       );
       final clientWithoutTracking = DartFetchClient(
         deploymentKey: 'key',
