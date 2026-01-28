@@ -2,7 +2,7 @@ name: amplitude_experiments_flutter_android
 description: >-
   Android implementation of the amplitude_experiments_flutter plugin.
   Uses the native Amplitude Experiment Android SDK.
-version: 0.0.1+2
+version: 0.0.1+3
 homepage: https://amplitude.com/docs/sdks/experiment-sdks
 repository: https://github.com/kaiquegazola/amplitude_experiments_flutter
 

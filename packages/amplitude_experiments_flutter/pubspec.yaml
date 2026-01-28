@@ -2,7 +2,7 @@ name: amplitude_experiments_flutter
 description: >-
   Flutter SDK for Amplitude Experiment. Provides feature flags and A/B testing
   capabilities with native iOS and Android support.
-version: 0.0.1+2
+version: 0.0.1+3
 homepage: https://amplitude.com/docs/sdks/experiment-sdks
 repository: https://github.com/kaiquegazola/amplitude_experiments_flutter
 
@@ -11,7 +11,7 @@ environment:
   flutter: ">=3.24.3"
 
 dependencies:
-  amplitude_experiments_flutter_android: ^0.0.1+2
+  amplitude_experiments_flutter_android: ^0.0.1+3
   amplitude_experiments_flutter_ios: ^0.0.1+2
   amplitude_experiments_flutter_platform_interface: ^0.0.3
   flutter:

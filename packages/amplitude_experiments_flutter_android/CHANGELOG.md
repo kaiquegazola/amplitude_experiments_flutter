@@ -1,3 +1,7 @@
+## 0.0.1+3
+
+ - **FIX**(android): convert JSONObject payload to Map for Pigeon serialization.
+
 ## 0.0.1+2
 
  - Update a dependency to the latest release.
