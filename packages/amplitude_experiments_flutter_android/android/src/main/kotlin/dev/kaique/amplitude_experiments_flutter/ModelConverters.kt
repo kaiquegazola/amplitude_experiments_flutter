@@ -3,11 +3,49 @@ package dev.kaique.amplitude_experiments_flutter
 import com.amplitude.experiment.ExperimentConfig
 import com.amplitude.experiment.ExperimentUser
 import com.amplitude.experiment.Variant
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Converts between Pigeon message types and native Amplitude SDK types.
  */
 object ModelConverters {
+    /**
+     * Converts a [JSONObject] to a [Map] that can be serialized by Flutter's StandardMessageCodec.
+     * Recursively converts nested JSONObject and JSONArray to Map and List.
+     */
+    private fun jsonObjectToMap(json: JSONObject): Map<String, Any?> {
+        val map = mutableMapOf<String, Any?>()
+        val keys = json.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            map[key] = convertJsonValue(json.get(key))
+        }
+        return map
+    }
+
+    /**
+     * Converts a [JSONArray] to a [List] that can be serialized by Flutter's StandardMessageCodec.
+     */
+    private fun jsonArrayToList(array: JSONArray): List<Any?> {
+        val list = mutableListOf<Any?>()
+        for (i in 0 until array.length()) {
+            list.add(convertJsonValue(array.get(i)))
+        }
+        return list
+    }
+
+    /**
+     * Converts a JSON value to a type that can be serialized by Flutter's StandardMessageCodec.
+     */
+    private fun convertJsonValue(value: Any?): Any? =
+        when (value) {
+            is JSONObject -> jsonObjectToMap(value)
+            is JSONArray -> jsonArrayToList(value)
+            JSONObject.NULL -> null
+            else -> value
+        }
+
     /**
      * Converts a [ServerZoneMessage] to the native Amplitude [com.amplitude.experiment.ServerZone].
      */
@@ -143,6 +181,7 @@ object ModelConverters {
 
     /**
      * Converts a native Amplitude [Variant] to a [VariantMessage].
+     * The payload is converted from JSONObject to Map to be serializable by Flutter.
      */
     fun variantToMessage(
         variant: Variant,
@@ -151,7 +190,7 @@ object ModelConverters {
         VariantMessage(
             key = variant.key ?: key,
             value = variant.value,
-            payload = variant.payload,
+            payload = convertJsonValue(variant.payload),
             expKey = variant.expKey,
         )
 
