@@ -31,6 +31,10 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         block: @escaping () throws -> ExperimentClient
     ) {
         serialQueue.async {
+            if self.client != nil {
+                DispatchQueue.main.async { completion(.success(())) }
+                return
+            }
             do {
                 let initializedClient = try block()
                 self.client = initializedClient
@@ -52,10 +56,6 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         config: ExperimentConfigMessage,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        if client != nil {
-            completion(.success(()))
-            return
-        }
         performInitialize(errorCode: "INIT_ERROR", completion: completion) {
             let configBuilder = ModelConverters.configFromMessage(config)
             return Experiment.initialize(apiKey: deploymentKey, config: configBuilder.build())
@@ -67,10 +67,6 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         config: ExperimentConfigMessage,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        if client != nil {
-            completion(.success(()))
-            return
-        }
         performInitialize(errorCode: "INIT_ANALYTICS_ERROR", completion: completion) {
             let configBuilder = ModelConverters.configFromMessage(config)
             return Experiment.initializeWithAmplitudeAnalytics(
@@ -108,7 +104,7 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
     }
 
     func variant(key: String, fallback: VariantMessage?) throws -> VariantMessage? {
-        let client = try requireClient()
+        let client = try serialQueue.sync { try self.requireClient() }
 
         let nativeFallback = fallback.map { ModelConverters.variantFromMessage($0) }
         let variant: Variant
@@ -127,17 +123,17 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
     }
 
     func all() throws -> [String?: VariantMessage?] {
-        let client = try requireClient()
+        let client = try serialQueue.sync { try self.requireClient() }
         let variants = client.all()
         return ModelConverters.variantMapToMessages(variants)
     }
 
     func exposure(key: String) throws {
-        let client = try requireClient()
+        let client = try serialQueue.sync { try self.requireClient() }
         client.exposure(key: key)
     }
 
     func clear() throws {
-        client?.clear()
+        serialQueue.sync { client?.clear() }
     }
 }
