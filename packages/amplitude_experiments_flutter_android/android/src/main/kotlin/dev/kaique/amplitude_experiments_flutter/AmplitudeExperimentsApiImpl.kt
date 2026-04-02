@@ -17,12 +17,13 @@ import java.util.concurrent.Executors
 class AmplitudeExperimentsApiImpl(
     private val context: Context,
 ) : AmplitudeExperimentsApi {
+    @Volatile
     private var client: ExperimentClient? = null
 
     private val application: Application
         get() = context.applicationContext as Application
 
-    private val executor: ExecutorService = Executors.newCachedThreadPool()
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private val mainHandler: Handler = Handler(Looper.getMainLooper())
 
     override fun initialize(
@@ -129,6 +130,6 @@ class AmplitudeExperimentsApiImpl(
     }
 
     fun shutdown() {
-        executor.shutdown()
+        executor.shutdownNow()
     }
 }

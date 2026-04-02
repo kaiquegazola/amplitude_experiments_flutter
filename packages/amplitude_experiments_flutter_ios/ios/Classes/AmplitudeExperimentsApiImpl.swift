@@ -21,8 +21,11 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let configBuilder = ModelConverters.configFromMessage(config)
-                self.client = Experiment.initialize(apiKey: deploymentKey, config: configBuilder.build())
-                DispatchQueue.main.async { completion(.success(())) }
+                let initializedClient = Experiment.initialize(apiKey: deploymentKey, config: configBuilder.build())
+                DispatchQueue.main.async {
+                    self.client = initializedClient
+                    completion(.success(()))
+                }
             } catch {
                 DispatchQueue.main.async {
                     completion(.failure(PigeonError(
@@ -43,11 +46,14 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let configBuilder = ModelConverters.configFromMessage(config)
-                self.client = Experiment.initializeWithAmplitudeAnalytics(
+                let initializedClient = Experiment.initializeWithAmplitudeAnalytics(
                     apiKey: deploymentKey,
                     config: configBuilder.build()
                 )
-                DispatchQueue.main.async { completion(.success(())) }
+                DispatchQueue.main.async {
+                    self.client = initializedClient
+                    completion(.success(()))
+                }
             } catch {
                 DispatchQueue.main.async {
                     completion(.failure(PigeonError(
