@@ -18,16 +18,20 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         config: ExperimentConfigMessage,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        do {
-            let configBuilder = ModelConverters.configFromMessage(config)
-            client = Experiment.initialize(apiKey: deploymentKey, config: configBuilder.build())
-            completion(.success(()))
-        } catch {
-            completion(.failure(PigeonError(
-                code: "INIT_ERROR",
-                message: error.localizedDescription,
-                details: nil
-            )))
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let configBuilder = ModelConverters.configFromMessage(config)
+                self.client = Experiment.initialize(apiKey: deploymentKey, config: configBuilder.build())
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(PigeonError(
+                        code: "INIT_ERROR",
+                        message: error.localizedDescription,
+                        details: nil
+                    )))
+                }
+            }
         }
     }
 
@@ -36,19 +40,23 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         config: ExperimentConfigMessage,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        do {
-            let configBuilder = ModelConverters.configFromMessage(config)
-            client = Experiment.initializeWithAmplitudeAnalytics(
-                apiKey: deploymentKey,
-                config: configBuilder.build()
-            )
-            completion(.success(()))
-        } catch {
-            completion(.failure(PigeonError(
-                code: "INIT_ANALYTICS_ERROR",
-                message: error.localizedDescription,
-                details: nil
-            )))
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let configBuilder = ModelConverters.configFromMessage(config)
+                self.client = Experiment.initializeWithAmplitudeAnalytics(
+                    apiKey: deploymentKey,
+                    config: configBuilder.build()
+                )
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(PigeonError(
+                        code: "INIT_ANALYTICS_ERROR",
+                        message: error.localizedDescription,
+                        details: nil
+                    )))
+                }
+            }
         }
     }
 

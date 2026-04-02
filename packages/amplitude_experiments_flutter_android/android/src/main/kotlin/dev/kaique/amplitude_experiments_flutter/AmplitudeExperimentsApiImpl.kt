@@ -2,8 +2,12 @@ package dev.kaique.amplitude_experiments_flutter
 
 import android.app.Application
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import com.amplitude.experiment.Experiment
 import com.amplitude.experiment.ExperimentClient
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * Implementation of the Pigeon-generated [AmplitudeExperimentsApi] interface.
@@ -18,17 +22,24 @@ class AmplitudeExperimentsApiImpl(
     private val application: Application
         get() = context.applicationContext as Application
 
+    private val executor: ExecutorService = Executors.newCachedThreadPool()
+    private val mainHandler: Handler = Handler(Looper.getMainLooper())
+
     override fun initialize(
         deploymentKey: String,
         config: ExperimentConfigMessage,
         callback: (Result<Unit>) -> Unit,
     ) {
-        try {
-            val nativeConfig = ModelConverters.configFromMessage(config)
-            client = Experiment.initialize(application, deploymentKey, nativeConfig)
-            callback(Result.success(Unit))
-        } catch (e: Exception) {
-            callback(Result.failure(FlutterError("INIT_ERROR", e.message, e.stackTraceToString())))
+        executor.execute {
+            try {
+                val nativeConfig = ModelConverters.configFromMessage(config)
+                client = Experiment.initialize(application, deploymentKey, nativeConfig)
+                mainHandler.post { callback(Result.success(Unit)) }
+            } catch (e: Exception) {
+                mainHandler.post {
+                    callback(Result.failure(FlutterError("INIT_ERROR", e.message, e.stackTraceToString())))
+                }
+            }
         }
     }
 
@@ -37,12 +48,16 @@ class AmplitudeExperimentsApiImpl(
         config: ExperimentConfigMessage,
         callback: (Result<Unit>) -> Unit,
     ) {
-        try {
-            val nativeConfig = ModelConverters.configFromMessage(config)
-            client = Experiment.initializeWithAmplitudeAnalytics(application, deploymentKey, nativeConfig)
-            callback(Result.success(Unit))
-        } catch (e: Exception) {
-            callback(Result.failure(FlutterError("INIT_ANALYTICS_ERROR", e.message, e.stackTraceToString())))
+        executor.execute {
+            try {
+                val nativeConfig = ModelConverters.configFromMessage(config)
+                client = Experiment.initializeWithAmplitudeAnalytics(application, deploymentKey, nativeConfig)
+                mainHandler.post { callback(Result.success(Unit)) }
+            } catch (e: Exception) {
+                mainHandler.post {
+                    callback(Result.failure(FlutterError("INIT_ANALYTICS_ERROR", e.message, e.stackTraceToString())))
+                }
+            }
         }
     }
 
@@ -56,12 +71,16 @@ class AmplitudeExperimentsApiImpl(
             return
         }
 
-        try {
-            val nativeUser = ModelConverters.userFromMessage(user)
-            experimentClient.fetch(nativeUser).get()
-            callback(Result.success(Unit))
-        } catch (e: Exception) {
-            callback(Result.failure(FlutterError("FETCH_ERROR", e.message, e.stackTraceToString())))
+        executor.execute {
+            try {
+                val nativeUser = ModelConverters.userFromMessage(user)
+                experimentClient.fetch(nativeUser).get()
+                mainHandler.post { callback(Result.success(Unit)) }
+            } catch (e: Exception) {
+                mainHandler.post {
+                    callback(Result.failure(FlutterError("FETCH_ERROR", e.message, e.stackTraceToString())))
+                }
+            }
         }
     }
 
@@ -107,5 +126,9 @@ class AmplitudeExperimentsApiImpl(
 
     override fun clear() {
         client?.clear()
+    }
+
+    fun shutdown() {
+        executor.shutdown()
     }
 }
