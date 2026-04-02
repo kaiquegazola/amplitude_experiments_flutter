@@ -52,6 +52,10 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         config: ExperimentConfigMessage,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
+        if client != nil {
+            completion(.success(()))
+            return
+        }
         performInitialize(errorCode: "INIT_ERROR", completion: completion) {
             let configBuilder = ModelConverters.configFromMessage(config)
             return Experiment.initialize(apiKey: deploymentKey, config: configBuilder.build())
@@ -63,6 +67,10 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         config: ExperimentConfigMessage,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
+        if client != nil {
+            completion(.success(()))
+            return
+        }
         performInitialize(errorCode: "INIT_ANALYTICS_ERROR", completion: completion) {
             let configBuilder = ModelConverters.configFromMessage(config)
             return Experiment.initializeWithAmplitudeAnalytics(

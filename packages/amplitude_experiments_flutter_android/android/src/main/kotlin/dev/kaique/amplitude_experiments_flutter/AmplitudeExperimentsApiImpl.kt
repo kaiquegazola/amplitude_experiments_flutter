@@ -59,6 +59,10 @@ class AmplitudeExperimentsApiImpl(
         config: ExperimentConfigMessage,
         callback: (Result<Unit>) -> Unit,
     ) {
+        if (client != null) {
+            callback(Result.success(Unit))
+            return
+        }
         executeInBackground("INIT_ERROR", callback) {
             val nativeConfig = ModelConverters.configFromMessage(config)
             client = Experiment.initialize(application, deploymentKey, nativeConfig)
@@ -70,6 +74,10 @@ class AmplitudeExperimentsApiImpl(
         config: ExperimentConfigMessage,
         callback: (Result<Unit>) -> Unit,
     ) {
+        if (client != null) {
+            callback(Result.success(Unit))
+            return
+        }
         executeInBackground("INIT_ANALYTICS_ERROR", callback) {
             val nativeConfig = ModelConverters.configFromMessage(config)
             client = Experiment.initializeWithAmplitudeAnalytics(application, deploymentKey, nativeConfig)
