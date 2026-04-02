@@ -12,29 +12,49 @@ import Foundation
 /// - clear() removes all cached variants
 class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
     private var client: ExperimentClient?
+    private let serialQueue = DispatchQueue(label: "dev.kaique.amplitude_experiments_flutter")
+
+    private func requireClient() throws -> ExperimentClient {
+        guard let client = client else {
+            throw PigeonError(
+                code: "NOT_INITIALIZED",
+                message: "Client not initialized. Call initialize() first.",
+                details: nil
+            )
+        }
+        return client
+    }
+
+    private func performInitialize(
+        errorCode: String,
+        completion: @escaping (Result<Void, Error>) -> Void,
+        block: @escaping () throws -> ExperimentClient
+    ) {
+        serialQueue.async {
+            do {
+                let initializedClient = try block()
+                self.client = initializedClient
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(PigeonError(
+                        code: errorCode,
+                        message: error.localizedDescription,
+                        details: nil
+                    )))
+                }
+            }
+        }
+    }
 
     func initialize(
         deploymentKey: String,
         config: ExperimentConfigMessage,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let configBuilder = ModelConverters.configFromMessage(config)
-                let initializedClient = Experiment.initialize(apiKey: deploymentKey, config: configBuilder.build())
-                DispatchQueue.main.async {
-                    self.client = initializedClient
-                    completion(.success(()))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    completion(.failure(PigeonError(
-                        code: "INIT_ERROR",
-                        message: error.localizedDescription,
-                        details: nil
-                    )))
-                }
-            }
+        performInitialize(errorCode: "INIT_ERROR", completion: completion) {
+            let configBuilder = ModelConverters.configFromMessage(config)
+            return Experiment.initialize(apiKey: deploymentKey, config: configBuilder.build())
         }
     }
 
@@ -43,26 +63,12 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         config: ExperimentConfigMessage,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let configBuilder = ModelConverters.configFromMessage(config)
-                let initializedClient = Experiment.initializeWithAmplitudeAnalytics(
-                    apiKey: deploymentKey,
-                    config: configBuilder.build()
-                )
-                DispatchQueue.main.async {
-                    self.client = initializedClient
-                    completion(.success(()))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    completion(.failure(PigeonError(
-                        code: "INIT_ANALYTICS_ERROR",
-                        message: error.localizedDescription,
-                        details: nil
-                    )))
-                }
-            }
+        performInitialize(errorCode: "INIT_ANALYTICS_ERROR", completion: completion) {
+            let configBuilder = ModelConverters.configFromMessage(config)
+            return Experiment.initializeWithAmplitudeAnalytics(
+                apiKey: deploymentKey,
+                config: configBuilder.build()
+            )
         }
     }
 
@@ -70,37 +76,31 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         user: ExperimentUserMessage?,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard let client = client else {
-            completion(.failure(PigeonError(
-                code: "NOT_INITIALIZED",
-                message: "Client not initialized. Call initialize() first.",
-                details: nil
-            )))
-            return
-        }
-
-        let nativeUser = ModelConverters.userFromMessage(user)
-        client.fetch(user: nativeUser) { _, error in
-            if let error = error {
-                completion(.failure(PigeonError(
-                    code: "FETCH_ERROR",
-                    message: error.localizedDescription,
-                    details: nil
-                )))
-            } else {
-                completion(.success(()))
+        serialQueue.async {
+            do {
+                let client = try self.requireClient()
+                let nativeUser = ModelConverters.userFromMessage(user)
+                client.fetch(user: nativeUser) { _, error in
+                    DispatchQueue.main.async {
+                        if let error = error {
+                            completion(.failure(PigeonError(
+                                code: "FETCH_ERROR",
+                                message: error.localizedDescription,
+                                details: nil
+                            )))
+                        } else {
+                            completion(.success(()))
+                        }
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
     }
 
     func variant(key: String, fallback: VariantMessage?) throws -> VariantMessage? {
-        guard let client = client else {
-            throw PigeonError(
-                code: "NOT_INITIALIZED",
-                message: "Client not initialized. Call initialize() first.",
-                details: nil
-            )
-        }
+        let client = try requireClient()
 
         let nativeFallback = fallback.map { ModelConverters.variantFromMessage($0) }
         let variant: Variant
@@ -119,27 +119,13 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
     }
 
     func all() throws -> [String?: VariantMessage?] {
-        guard let client = client else {
-            throw PigeonError(
-                code: "NOT_INITIALIZED",
-                message: "Client not initialized. Call initialize() first.",
-                details: nil
-            )
-        }
-
+        let client = try requireClient()
         let variants = client.all()
         return ModelConverters.variantMapToMessages(variants)
     }
 
     func exposure(key: String) throws {
-        guard let client = client else {
-            throw PigeonError(
-                code: "NOT_INITIALIZED",
-                message: "Client not initialized. Call initialize() first.",
-                details: nil
-            )
-        }
-
+        let client = try requireClient()
         client.exposure(key: key)
     }
 

@@ -8,6 +8,7 @@ import com.amplitude.experiment.Experiment
 import com.amplitude.experiment.ExperimentClient
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 
 /**
  * Implementation of the Pigeon-generated [AmplitudeExperimentsApi] interface.
@@ -26,21 +27,41 @@ class AmplitudeExperimentsApiImpl(
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private val mainHandler: Handler = Handler(Looper.getMainLooper())
 
+    private fun requireClient(): ExperimentClient =
+        client
+            ?: throw FlutterError("NOT_INITIALIZED", "Client not initialized. Call initialize() first.", null)
+
+    private fun executeInBackground(
+        errorCode: String,
+        callback: (Result<Unit>) -> Unit,
+        block: () -> Unit,
+    ) {
+        try {
+            executor.execute {
+                try {
+                    block()
+                    mainHandler.post { callback(Result.success(Unit)) }
+                } catch (e: FlutterError) {
+                    mainHandler.post { callback(Result.failure(e)) }
+                } catch (e: Exception) {
+                    mainHandler.post {
+                        callback(Result.failure(FlutterError(errorCode, e.message, e.stackTraceToString())))
+                    }
+                }
+            }
+        } catch (_: RejectedExecutionException) {
+            callback(Result.failure(FlutterError("SHUTDOWN", "Plugin has been detached.", null)))
+        }
+    }
+
     override fun initialize(
         deploymentKey: String,
         config: ExperimentConfigMessage,
         callback: (Result<Unit>) -> Unit,
     ) {
-        executor.execute {
-            try {
-                val nativeConfig = ModelConverters.configFromMessage(config)
-                client = Experiment.initialize(application, deploymentKey, nativeConfig)
-                mainHandler.post { callback(Result.success(Unit)) }
-            } catch (e: Exception) {
-                mainHandler.post {
-                    callback(Result.failure(FlutterError("INIT_ERROR", e.message, e.stackTraceToString())))
-                }
-            }
+        executeInBackground("INIT_ERROR", callback) {
+            val nativeConfig = ModelConverters.configFromMessage(config)
+            client = Experiment.initialize(application, deploymentKey, nativeConfig)
         }
     }
 
@@ -49,16 +70,9 @@ class AmplitudeExperimentsApiImpl(
         config: ExperimentConfigMessage,
         callback: (Result<Unit>) -> Unit,
     ) {
-        executor.execute {
-            try {
-                val nativeConfig = ModelConverters.configFromMessage(config)
-                client = Experiment.initializeWithAmplitudeAnalytics(application, deploymentKey, nativeConfig)
-                mainHandler.post { callback(Result.success(Unit)) }
-            } catch (e: Exception) {
-                mainHandler.post {
-                    callback(Result.failure(FlutterError("INIT_ANALYTICS_ERROR", e.message, e.stackTraceToString())))
-                }
-            }
+        executeInBackground("INIT_ANALYTICS_ERROR", callback) {
+            val nativeConfig = ModelConverters.configFromMessage(config)
+            client = Experiment.initializeWithAmplitudeAnalytics(application, deploymentKey, nativeConfig)
         }
     }
 
@@ -66,22 +80,10 @@ class AmplitudeExperimentsApiImpl(
         user: ExperimentUserMessage?,
         callback: (Result<Unit>) -> Unit,
     ) {
-        val experimentClient = client
-        if (experimentClient == null) {
-            callback(Result.failure(FlutterError("NOT_INITIALIZED", "Client not initialized. Call initialize() first.", null)))
-            return
-        }
-
-        executor.execute {
-            try {
-                val nativeUser = ModelConverters.userFromMessage(user)
-                experimentClient.fetch(nativeUser).get()
-                mainHandler.post { callback(Result.success(Unit)) }
-            } catch (e: Exception) {
-                mainHandler.post {
-                    callback(Result.failure(FlutterError("FETCH_ERROR", e.message, e.stackTraceToString())))
-                }
-            }
+        executeInBackground("FETCH_ERROR", callback) {
+            val experimentClient = requireClient()
+            val nativeUser = ModelConverters.userFromMessage(user)
+            experimentClient.fetch(nativeUser).get()
         }
     }
 
@@ -89,9 +91,7 @@ class AmplitudeExperimentsApiImpl(
         key: String,
         fallback: VariantMessage?,
     ): VariantMessage? {
-        val experimentClient =
-            client
-                ?: throw FlutterError("NOT_INITIALIZED", "Client not initialized. Call initialize() first.", null)
+        val experimentClient = requireClient()
 
         val nativeFallback = fallback?.let { ModelConverters.variantFromMessage(it) }
         val variant =
@@ -109,19 +109,13 @@ class AmplitudeExperimentsApiImpl(
     }
 
     override fun all(): Map<String?, VariantMessage?> {
-        val experimentClient =
-            client
-                ?: throw FlutterError("NOT_INITIALIZED", "Client not initialized. Call initialize() first.", null)
-
+        val experimentClient = requireClient()
         val variants = experimentClient.all()
         return ModelConverters.variantMapToMessages(variants)
     }
 
     override fun exposure(key: String) {
-        val experimentClient =
-            client
-                ?: throw FlutterError("NOT_INITIALIZED", "Client not initialized. Call initialize() first.", null)
-
+        val experimentClient = requireClient()
         experimentClient.exposure(key)
     }
 
