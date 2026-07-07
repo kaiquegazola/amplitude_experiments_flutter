@@ -1,3 +1,8 @@
+## 0.0.1+4
+
+ - **FIX**(android,ios): prevent ANR by moving blocking operations to background threads (#3).
+ - **FIX**(android,ios): re-initializing with a different deployment key or analytics mode now fails with `ALREADY_INITIALIZED` instead of silently keeping the old client.
+
 ## 0.0.1+3
 
  - **FIX**(android): convert JSONObject payload to Map for Pigeon serialization.

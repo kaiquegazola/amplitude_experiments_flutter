@@ -1,3 +1,7 @@
+## 0.0.3+1
+
+ - **FIX**(android,ios): prevent ANR by moving blocking operations to background threads (#3).
+
 ## 0.0.3
 
  - **REFACTOR**: clean up DartFetchClient and improve test readability by simplifying code structure and removing unnecessary comments.
