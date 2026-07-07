@@ -36,6 +36,10 @@ class AmplitudeExperiments {
   /// [config] contains optional configuration options for the client.
   ///
   /// This method should be called before any other methods.
+  ///
+  /// Calling it again with the same [deploymentKey] is a no-op. Calling it
+  /// with a different key, or after [initializeWithAmplitudeAnalytics],
+  /// throws a `PlatformException` with code `ALREADY_INITIALIZED`.
   static Future<void> initialize(
     String deploymentKey, {
     ExperimentConfig? config,
@@ -51,6 +55,10 @@ class AmplitudeExperiments {
   /// This enables automatic user identity and exposure tracking through Analytics.
   /// [deploymentKey] is the deployment key from Amplitude Experiments.
   /// [config] contains optional configuration options for the client.
+  ///
+  /// Calling it again with the same [deploymentKey] is a no-op. Calling it
+  /// with a different key, or after [initialize], throws a
+  /// `PlatformException` with code `ALREADY_INITIALIZED`.
   static Future<void> initializeWithAmplitudeAnalytics(
     String deploymentKey, {
     ExperimentConfig? config,

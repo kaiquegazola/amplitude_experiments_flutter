@@ -2,8 +2,13 @@ package dev.kaique.amplitude_experiments_flutter
 
 import android.app.Application
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import com.amplitude.experiment.Experiment
 import com.amplitude.experiment.ExperimentClient
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 
 /**
  * Implementation of the Pigeon-generated [AmplitudeExperimentsApi] interface.
@@ -13,22 +18,80 @@ import com.amplitude.experiment.ExperimentClient
 class AmplitudeExperimentsApiImpl(
     private val context: Context,
 ) : AmplitudeExperimentsApi {
+    @Volatile
     private var client: ExperimentClient? = null
+
+    // deploymentKey to withAnalytics of the successful initialization
+    @Volatile
+    private var initParams: Pair<String, Boolean>? = null
 
     private val application: Application
         get() = context.applicationContext as Application
+
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val mainHandler: Handler = Handler(Looper.getMainLooper())
+
+    private fun requireClient(): ExperimentClient =
+        client
+            ?: throw FlutterError("NOT_INITIALIZED", "Client not initialized. Call initialize() first.", null)
+
+    private fun executeInBackground(
+        errorCode: String,
+        callback: (Result<Unit>) -> Unit,
+        block: () -> Unit,
+    ) {
+        try {
+            executor.execute {
+                try {
+                    block()
+                    mainHandler.post { callback(Result.success(Unit)) }
+                } catch (e: FlutterError) {
+                    mainHandler.post { callback(Result.failure(e)) }
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    mainHandler.post {
+                        callback(Result.failure(FlutterError(errorCode, e.message, e.stackTraceToString())))
+                    }
+                } catch (e: Exception) {
+                    mainHandler.post {
+                        callback(Result.failure(FlutterError(errorCode, e.message, e.stackTraceToString())))
+                    }
+                }
+            }
+        } catch (_: RejectedExecutionException) {
+            callback(Result.failure(FlutterError("SHUTDOWN", "Plugin has been detached.", null)))
+        }
+    }
+
+    private fun performInitialize(
+        deploymentKey: String,
+        withAnalytics: Boolean,
+        errorCode: String,
+        callback: (Result<Unit>) -> Unit,
+        createClient: () -> ExperimentClient,
+    ) {
+        executeInBackground(errorCode, callback) {
+            initParams?.let { existing ->
+                if (existing == deploymentKey to withAnalytics) return@executeInBackground
+                throw FlutterError(
+                    "ALREADY_INITIALIZED",
+                    "Client already initialized with a different deployment key or analytics mode.",
+                    null,
+                )
+            }
+            client = createClient()
+            initParams = deploymentKey to withAnalytics
+        }
+    }
 
     override fun initialize(
         deploymentKey: String,
         config: ExperimentConfigMessage,
         callback: (Result<Unit>) -> Unit,
     ) {
-        try {
+        performInitialize(deploymentKey, withAnalytics = false, "INIT_ERROR", callback) {
             val nativeConfig = ModelConverters.configFromMessage(config)
-            client = Experiment.initialize(application, deploymentKey, nativeConfig)
-            callback(Result.success(Unit))
-        } catch (e: Exception) {
-            callback(Result.failure(FlutterError("INIT_ERROR", e.message, e.stackTraceToString())))
+            Experiment.initialize(application, deploymentKey, nativeConfig)
         }
     }
 
@@ -37,12 +100,9 @@ class AmplitudeExperimentsApiImpl(
         config: ExperimentConfigMessage,
         callback: (Result<Unit>) -> Unit,
     ) {
-        try {
+        performInitialize(deploymentKey, withAnalytics = true, "INIT_ANALYTICS_ERROR", callback) {
             val nativeConfig = ModelConverters.configFromMessage(config)
-            client = Experiment.initializeWithAmplitudeAnalytics(application, deploymentKey, nativeConfig)
-            callback(Result.success(Unit))
-        } catch (e: Exception) {
-            callback(Result.failure(FlutterError("INIT_ANALYTICS_ERROR", e.message, e.stackTraceToString())))
+            Experiment.initializeWithAmplitudeAnalytics(application, deploymentKey, nativeConfig)
         }
     }
 
@@ -50,18 +110,10 @@ class AmplitudeExperimentsApiImpl(
         user: ExperimentUserMessage?,
         callback: (Result<Unit>) -> Unit,
     ) {
-        val experimentClient = client
-        if (experimentClient == null) {
-            callback(Result.failure(FlutterError("NOT_INITIALIZED", "Client not initialized. Call initialize() first.", null)))
-            return
-        }
-
-        try {
+        executeInBackground("FETCH_ERROR", callback) {
+            val experimentClient = requireClient()
             val nativeUser = ModelConverters.userFromMessage(user)
             experimentClient.fetch(nativeUser).get()
-            callback(Result.success(Unit))
-        } catch (e: Exception) {
-            callback(Result.failure(FlutterError("FETCH_ERROR", e.message, e.stackTraceToString())))
         }
     }
 
@@ -69,9 +121,7 @@ class AmplitudeExperimentsApiImpl(
         key: String,
         fallback: VariantMessage?,
     ): VariantMessage? {
-        val experimentClient =
-            client
-                ?: throw FlutterError("NOT_INITIALIZED", "Client not initialized. Call initialize() first.", null)
+        val experimentClient = requireClient()
 
         val nativeFallback = fallback?.let { ModelConverters.variantFromMessage(it) }
         val variant =
@@ -89,23 +139,23 @@ class AmplitudeExperimentsApiImpl(
     }
 
     override fun all(): Map<String?, VariantMessage?> {
-        val experimentClient =
-            client
-                ?: throw FlutterError("NOT_INITIALIZED", "Client not initialized. Call initialize() first.", null)
-
+        val experimentClient = requireClient()
         val variants = experimentClient.all()
         return ModelConverters.variantMapToMessages(variants)
     }
 
     override fun exposure(key: String) {
-        val experimentClient =
-            client
-                ?: throw FlutterError("NOT_INITIALIZED", "Client not initialized. Call initialize() first.", null)
-
+        val experimentClient = requireClient()
         experimentClient.exposure(key)
     }
 
     override fun clear() {
         client?.clear()
+    }
+
+    fun shutdown() {
+        // ponytail: queued (not yet started) tasks are dropped and their Dart Futures
+        // never complete; acceptable because the engine (and its isolate) is detaching.
+        executor.shutdownNow()
     }
 }

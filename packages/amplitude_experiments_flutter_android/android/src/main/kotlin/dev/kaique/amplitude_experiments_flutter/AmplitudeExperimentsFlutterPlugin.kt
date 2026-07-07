@@ -19,6 +19,7 @@ class AmplitudeExperimentsFlutterPlugin : FlutterPlugin {
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         AmplitudeExperimentsApi.setUp(binding.binaryMessenger, null)
+        apiImpl?.shutdown()
         apiImpl = null
     }
 }
