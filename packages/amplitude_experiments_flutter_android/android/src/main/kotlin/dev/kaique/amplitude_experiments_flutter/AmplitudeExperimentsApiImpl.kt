@@ -21,6 +21,10 @@ class AmplitudeExperimentsApiImpl(
     @Volatile
     private var client: ExperimentClient? = null
 
+    // deploymentKey to withAnalytics of the successful initialization
+    @Volatile
+    private var initParams: Pair<String, Boolean>? = null
+
     private val application: Application
         get() = context.applicationContext as Application
 
@@ -43,6 +47,11 @@ class AmplitudeExperimentsApiImpl(
                     mainHandler.post { callback(Result.success(Unit)) }
                 } catch (e: FlutterError) {
                     mainHandler.post { callback(Result.failure(e)) }
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    mainHandler.post {
+                        callback(Result.failure(FlutterError(errorCode, e.message, e.stackTraceToString())))
+                    }
                 } catch (e: Exception) {
                     mainHandler.post {
                         callback(Result.failure(FlutterError(errorCode, e.message, e.stackTraceToString())))
@@ -54,15 +63,35 @@ class AmplitudeExperimentsApiImpl(
         }
     }
 
+    private fun performInitialize(
+        deploymentKey: String,
+        withAnalytics: Boolean,
+        errorCode: String,
+        callback: (Result<Unit>) -> Unit,
+        createClient: () -> ExperimentClient,
+    ) {
+        executeInBackground(errorCode, callback) {
+            initParams?.let { existing ->
+                if (existing == deploymentKey to withAnalytics) return@executeInBackground
+                throw FlutterError(
+                    "ALREADY_INITIALIZED",
+                    "Client already initialized with a different deployment key or analytics mode.",
+                    null,
+                )
+            }
+            client = createClient()
+            initParams = deploymentKey to withAnalytics
+        }
+    }
+
     override fun initialize(
         deploymentKey: String,
         config: ExperimentConfigMessage,
         callback: (Result<Unit>) -> Unit,
     ) {
-        executeInBackground("INIT_ERROR", callback) {
-            if (client != null) return@executeInBackground
+        performInitialize(deploymentKey, withAnalytics = false, "INIT_ERROR", callback) {
             val nativeConfig = ModelConverters.configFromMessage(config)
-            client = Experiment.initialize(application, deploymentKey, nativeConfig)
+            Experiment.initialize(application, deploymentKey, nativeConfig)
         }
     }
 
@@ -71,10 +100,9 @@ class AmplitudeExperimentsApiImpl(
         config: ExperimentConfigMessage,
         callback: (Result<Unit>) -> Unit,
     ) {
-        executeInBackground("INIT_ANALYTICS_ERROR", callback) {
-            if (client != null) return@executeInBackground
+        performInitialize(deploymentKey, withAnalytics = true, "INIT_ANALYTICS_ERROR", callback) {
             val nativeConfig = ModelConverters.configFromMessage(config)
-            client = Experiment.initializeWithAmplitudeAnalytics(application, deploymentKey, nativeConfig)
+            Experiment.initializeWithAmplitudeAnalytics(application, deploymentKey, nativeConfig)
         }
     }
 
@@ -126,6 +154,8 @@ class AmplitudeExperimentsApiImpl(
     }
 
     fun shutdown() {
+        // ponytail: queued (not yet started) tasks are dropped and their Dart Futures
+        // never complete; acceptable because the engine (and its isolate) is detaching.
         executor.shutdownNow()
     }
 }

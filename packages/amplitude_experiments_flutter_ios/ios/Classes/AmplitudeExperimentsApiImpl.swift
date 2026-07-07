@@ -12,6 +12,8 @@ import Foundation
 /// - clear() removes all cached variants
 class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
     private var client: ExperimentClient?
+    /// Deployment key and analytics mode of the successful initialization.
+    private var initParams: (deploymentKey: String, withAnalytics: Bool)?
     private let serialQueue = DispatchQueue(label: "dev.kaique.amplitude_experiments_flutter")
 
     private func requireClient() throws -> ExperimentClient {
@@ -26,18 +28,31 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
     }
 
     private func performInitialize(
+        deploymentKey: String,
+        withAnalytics: Bool,
         errorCode: String,
         completion: @escaping (Result<Void, Error>) -> Void,
         block: @escaping () throws -> ExperimentClient
     ) {
         serialQueue.async {
-            if self.client != nil {
-                DispatchQueue.main.async { completion(.success(())) }
+            if let existing = self.initParams {
+                DispatchQueue.main.async {
+                    if existing.deploymentKey == deploymentKey, existing.withAnalytics == withAnalytics {
+                        completion(.success(()))
+                    } else {
+                        completion(.failure(PigeonError(
+                            code: "ALREADY_INITIALIZED",
+                            message: "Client already initialized with a different deployment key or analytics mode.",
+                            details: nil
+                        )))
+                    }
+                }
                 return
             }
             do {
                 let initializedClient = try block()
                 self.client = initializedClient
+                self.initParams = (deploymentKey, withAnalytics)
                 DispatchQueue.main.async { completion(.success(())) }
             } catch {
                 DispatchQueue.main.async {
@@ -56,7 +71,12 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         config: ExperimentConfigMessage,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        performInitialize(errorCode: "INIT_ERROR", completion: completion) {
+        performInitialize(
+            deploymentKey: deploymentKey,
+            withAnalytics: false,
+            errorCode: "INIT_ERROR",
+            completion: completion
+        ) {
             let configBuilder = ModelConverters.configFromMessage(config)
             return Experiment.initialize(apiKey: deploymentKey, config: configBuilder.build())
         }
@@ -67,7 +87,12 @@ class AmplitudeExperimentsApiImpl: AmplitudeExperimentsApi {
         config: ExperimentConfigMessage,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        performInitialize(errorCode: "INIT_ANALYTICS_ERROR", completion: completion) {
+        performInitialize(
+            deploymentKey: deploymentKey,
+            withAnalytics: true,
+            errorCode: "INIT_ANALYTICS_ERROR",
+            completion: completion
+        ) {
             let configBuilder = ModelConverters.configFromMessage(config)
             return Experiment.initializeWithAmplitudeAnalytics(
                 apiKey: deploymentKey,
